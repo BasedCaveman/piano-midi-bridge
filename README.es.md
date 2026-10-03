@@ -27,6 +27,8 @@ También hay una versión para **Windows 10 (2004+) y Windows 11**, con el mismo
 3. Conecte el piano al PC con el cable USB y abra la app. Cerrar la ventana deja el puente activo en el icono 🎹 de la bandeja del sistema, junto al reloj.
 4. En el iPhone, siga los mismos pasos de Smart Pianist descritos abajo. El PC aparece con el **nombre Bluetooth del equipo**: en Windows no se puede elegir otro nombre.
 
+<p align="center"><img src="docs/screenshot-windows.png" width="420" alt="Panel en la versión para Windows"></p>
+
 Diferencias con macOS:
 - El adaptador Bluetooth del PC debe admitir el modo **periférico** de Bluetooth LE. La mayoría de los adaptadores actuales lo admite; si no, el panel lo indica.
 - En Windows solo un programa a la vez puede usar el piano: cierre DAWs o apps de Yamaha que lo tengan abierto.
