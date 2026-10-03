@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/icon.png" width="128" alt="Piano MIDI Bridge"></p>
+
 # 🎹 Piano MIDI Bridge
 
 **Português** · [English](README.en.md) · [Español](README.es.md)
