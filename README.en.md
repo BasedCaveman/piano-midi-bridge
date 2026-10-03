@@ -100,7 +100,7 @@ Sources/App.swift          app, window and menu-bar icon
 Sources/SteampunkUI.swift  steampunk panel: tubes, VU meters, switches, Nixie
 Sources/Strings.swift      UI text in Portuguese, English and Spanish
 Resources/Info.plist       app metadata
-scripts/make-icon.swift    generates the icon
+Resources/AppIcon.png      1024 px master icon (AI-generated, cut out by scripts/make-icon-master.swift)
 build.sh                   compiles, assembles the .app, signs and creates the .dmg
 ```
 

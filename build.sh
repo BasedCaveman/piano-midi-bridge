@@ -24,8 +24,13 @@ rm "$BUILD"/PianoMIDIBridge-{arm64,x86_64}
 
 echo "▸ Montando o .app…"
 sed "s/__VERSION__/$VERSION/g" Resources/Info.plist > "$APP/Contents/Info.plist"
-swift scripts/make-icon.swift "$BUILD/AppIcon"
-iconutil -c icns "$BUILD/AppIcon.iconset" -o "$APP/Contents/Resources/AppIcon.icns"
+# Ícone: gera todos os tamanhos a partir do mestre de 1024 px
+ICONSET="$BUILD/AppIcon.iconset"; mkdir -p "$ICONSET"
+for s in 16 32 128 256 512; do
+  sips -z $s $s Resources/AppIcon.png --out "$ICONSET/icon_${s}x${s}.png" >/dev/null
+  sips -z $((s*2)) $((s*2)) Resources/AppIcon.png --out "$ICONSET/icon_${s}x${s}@2x.png" >/dev/null
+done
+iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
 rm -rf "$BUILD/AppIcon.iconset"
 
 echo "▸ Assinando…"

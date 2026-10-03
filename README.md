@@ -99,7 +99,7 @@ Sources/DiagLog.swift      log de diagnóstico em ~/Library/Logs
 Sources/App.swift          app, janela e ícone da barra de menus
 Sources/SteampunkUI.swift  painel steampunk: válvulas, VU meters, chaves, Nixie
 Resources/Info.plist       metadados do app
-scripts/make-icon.swift    gera o ícone
+Resources/AppIcon.png      ícone-mestre 1024 px (gerado com IA e recortado por scripts/make-icon-master.swift)
 build.sh                   compila, monta o .app, assina e cria o .dmg
 ```
 
