@@ -1,7 +1,6 @@
 // Interface no estilo amplificador valvulado steampunk:
 // moldura de madeira, painel de latão rebitado, válvulas, VU meters e chaves de alavanca.
 import SwiftUI
-import CoreAudioKit
 import ServiceManagement
 
 // MARK: - Paleta e tipografia
@@ -44,29 +43,32 @@ struct Engraved: View {
 struct SteampunkPanel: View {
     /// Usado só para gerar a imagem do README (ImageRenderer não desenha menus nativos).
     static var snapshotMode = false
+    /// Só no snapshot: força o estado "aguardando iPhone" para conferir o layout das dicas.
+    static var snapshotWaiting = false
     @EnvironmentObject var bridge: MIDIBridge
+    @AppStorage("lang") private var langRaw = Lang.current.rawValue
+    private var lang: Lang { Lang(rawValue: langRaw) ?? .en }
+    private var t: Strings { .of(lang) }
     var showsWindowHint = false
     /// Espaço extra no topo quando o painel ocupa a janela com barra de título transparente.
     var topInset: CGFloat = 0
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
-    @State private var btWindow: CABTLEMIDIWindowController?
 
     private var active: Bool { bridge.isRunning }
-    private var linked: Bool { bridge.isRunning && !bridge.devices.isEmpty && bridge.pianoID != nil }
 
     var body: some View {
         VStack(spacing: 14) {
             header
             HStack(alignment: .bottom, spacing: 10) {
-                VUMeter(label: "PIANO ➜ iPHONE", rate: bridge.rateToDevice, powered: active)
+                VUMeter(label: t.toPhone, rate: bridge.rateToDevice, powered: active)
                 VStack(spacing: 6) {
                     HStack(spacing: 6) {
                         VacuumTube(power: active ? 0.45 + activity(bridge.rateToDevice) * 0.55 : 0)
                         VacuumTube(power: active ? 0.45 + activity(bridge.rateToPiano) * 0.55 : 0)
                     }
-                    Engraved("VÁLVULAS", size: 8)
+                    Engraved(t.tubes, size: 8)
                 }
-                VUMeter(label: "iPHONE ➜ PIANO", rate: bridge.rateToPiano, powered: active)
+                VUMeter(label: t.toPiano, rate: bridge.rateToPiano, powered: active)
             }
             stations
             switches
@@ -91,12 +93,12 @@ struct SteampunkPanel: View {
                 Text("PIANO MIDI BRIDGE").font(.engraved(20)).tracking(2)
                     .foregroundStyle(Brass.ink)
                     .shadow(color: .white.opacity(0.5), radius: 0, x: 0, y: 1)
-                Text("Transmissor Bluetooth de Mensagens Musicais · Mod. 1").font(.typewriter(9.5))
+                Text(t.subtitle).font(.typewriter(9.5))
                     .foregroundStyle(Brass.ink.opacity(0.7))
             }
             .frame(maxWidth: .infinity)
             Gear(teeth: 9, spinning: active, speed: -1.4).frame(width: 26, height: 26)
-            MasterSwitch(isOn: Binding(get: { bridge.isRunning }, set: { $0 ? bridge.start() : bridge.stop() }))
+            MasterSwitch(t: t, isOn: Binding(get: { bridge.isRunning }, set: { $0 ? bridge.start() : bridge.stop() }))
         }
     }
 
@@ -106,26 +108,55 @@ struct SteampunkPanel: View {
         return VStack(spacing: 8) {
             HStack(spacing: 10) {
                 PilotLamp(color: bridge.pianoID != nil ? .green : .red, lit: active)
-                Engraved("INSTRUMENTO", size: 9).frame(width: 92, alignment: .leading)
+                Engraved(t.instrument, size: 9).frame(width: 92, alignment: .leading)
                 if instruments.isEmpty {
-                    NamePlate("— conecte o cabo USB —", dim: true)
+                    NamePlate(t.connectUSB, dim: true)
                 } else if Self.snapshotMode {
-                    NamePlate((bridge.pianoName ?? "selecionar") + "  ▾")
+                    NamePlate((bridge.pianoName ?? t.select) + "  ▾")
                 } else {
                     Menu {
                         ForEach(instruments) { i in Button(i.name) { bridge.pianoID = i.id } }
                     } label: {
-                        NamePlate((bridge.pianoName ?? "selecionar") + "  ▾")
+                        NamePlate((bridge.pianoName ?? t.select) + "  ▾")
                     }
                     .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
                 }
                 Spacer(minLength: 0)
             }
             HStack(spacing: 10) {
-                PilotLamp(color: bridge.devices.isEmpty ? .orange : .green, lit: active)
-                Engraved("RECEPTOR", size: 9).frame(width: 92, alignment: .leading)
-                NamePlate(bridge.devices.first?.name ?? "— aguardando iPhone —", dim: bridge.devices.isEmpty)
+                PilotLamp(color: transmitterColor, lit: active, blinking: isAdvertising && !bridge.isLinked)
+                Engraved(t.transmitter, size: 9).frame(width: 92, alignment: .leading)
+                HStack(spacing: 6) {
+                    Image(systemName: "antenna.radiowaves.left.and.right").font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(Brass.cream.opacity(0.8))
+                    if Self.snapshotMode {
+                        Text(bridge.bleName).font(.typewriter(11.5)).foregroundStyle(Brass.cream)
+                            .frame(width: 150, alignment: .leading)
+                    } else {
+                        TextField("", text: $bridge.bleName)
+                            .textFieldStyle(.plain).font(.typewriter(11.5)).foregroundStyle(Brass.cream)
+                            .frame(width: 150)
+                    }
+                }
+                .padding(.horizontal, 10).padding(.vertical, 4)
+                .background(RoundedRectangle(cornerRadius: 3).fill(Color(red: 0.12, green: 0.07, blue: 0.04)))
+                .overlay(RoundedRectangle(cornerRadius: 3).stroke(Brass.mid, lineWidth: 1.2))
+                .help(t.editNameHelp)
                 Spacer(minLength: 0)
+            }
+            HStack(spacing: 10) {
+                PilotLamp(color: bridge.isLinked ? .green : .orange, lit: active)
+                Engraved(t.receiver, size: 9).frame(width: 92, alignment: .leading)
+                receiverPlate
+                Spacer(minLength: 0)
+            }
+            if active, let hint = guidance {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(hint).font(.typewriter(10.5)).foregroundStyle(Brass.ink.opacity(0.9))
+                    Text(t.notFoundHint).font(.typewriter(9.5)).foregroundStyle(Brass.ink.opacity(0.65))
+                }
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading).padding(.leading, 28)
             }
         }
         .padding(10)
@@ -133,12 +164,49 @@ struct SteampunkPanel: View {
             .overlay(RoundedRectangle(cornerRadius: 6).stroke(Brass.dark.opacity(0.6), lineWidth: 1)))
     }
 
+    private var isAdvertising: Bool {
+        if case .advertising = bridge.bleStatus { return true }
+        return false
+    }
+
+    private var transmitterColor: Color {
+        switch bridge.bleStatus {
+        case .advertising, .connected: return .green
+        case .starting, .idle: return .orange
+        default: return .red
+        }
+    }
+
+    @ViewBuilder private var receiverPlate: some View {
+        switch bridge.bleStatus {
+        case .off where !bridge.isLinked: NamePlate(t.btOff, dim: true)
+        case .unsupported where !bridge.isLinked: NamePlate(t.btUnsupported, dim: true)
+        case .unauthorized where !bridge.isLinked:
+            HStack(spacing: 6) {
+                NamePlate(t.btUnauthorized, dim: true)
+                BrassButton(title: t.openSettings, systemImage: "gearshape") {
+                    NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Bluetooth")!)
+                }
+            }
+        default:
+            if case .connected = bridge.bleStatus { NamePlate(t.phoneConnected) }
+            else if let d = bridge.devices.first { NamePlate(d.name) }
+            else { NamePlate(t.waitingPhone, dim: true) }
+        }
+    }
+
+    /// Próximo passo para o usuário, enquanto o iPhone não conectou.
+    private var guidance: String? {
+        guard Self.snapshotWaiting || (!bridge.isLinked && isAdvertising) else { return nil }
+        return String(format: t.connectHint, bridge.bleName)
+    }
+
     // Chaves de alavanca e contador Nixie
     private var switches: some View {
         HStack(alignment: .top, spacing: 18) {
-            ToggleLever(title: "FILTRO\nCLOCK F8", isOn: $bridge.filterClock)
-            ToggleLever(title: "FILTRO\nSENSING FE", isOn: $bridge.filterActiveSensing)
-            ToggleLever(title: "LIGAR COM\nO MAC", isOn: $launchAtLogin)
+            ToggleLever(title: t.filterClock, isOn: $bridge.filterClock)
+            ToggleLever(title: t.filterSensing, isOn: $bridge.filterActiveSensing)
+            ToggleLever(title: t.launchAtLogin, isOn: $launchAtLogin)
                 .onChange(of: launchAtLogin) { _, on in
                     do { on ? try SMAppService.mainApp.register() : try SMAppService.mainApp.unregister() }
                     catch { launchAtLogin = SMAppService.mainApp.status == .enabled }
@@ -146,7 +214,7 @@ struct SteampunkPanel: View {
             Spacer(minLength: 0)
             VStack(spacing: 5) {
                 NixieCounter(value: bridge.filtered, digits: 7, powered: active)
-                Engraved("BYTES FILTRADOS", size: 8)
+                Engraved(t.bytesFiltered, size: 8)
             }
         }
     }
@@ -154,18 +222,12 @@ struct SteampunkPanel: View {
     private var footer: some View {
         VStack(spacing: 8) {
             HStack(spacing: 10) {
-                BrassButton(title: "ANUNCIAR BLUETOOTH", systemImage: "antenna.radiowaves.left.and.right") {
-                    let c = CABTLEMIDIWindowController()
-                    c.showWindow(nil)
-                    c.window?.makeKeyAndOrderFront(nil)
-                    NSApp.activate(ignoringOtherApps: true)
-                    btWindow = c
-                }
-                Spacer()
-                BrassButton(title: "DESLIGAR", systemImage: "power") { NSApp.terminate(nil) }
+                LanguageSelector(title: t.language, lang: $langRaw)
+                Spacer(minLength: 4)
+                BrassButton(title: t.quit, systemImage: "power") { NSApp.terminate(nil) }
             }
             if showsWindowHint {
-                Text("Pode fechar esta janela: a ponte segue ativa no ícone 🎹 da barra de menus. Para reabrir, abra o app de novo.")
+                Text(t.windowHint)
                     .font(.typewriter(9.5)).foregroundStyle(Brass.ink.opacity(0.75))
                     .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
             }
@@ -396,7 +458,19 @@ struct VUMeter: View {
 struct PilotLamp: View {
     let color: Color
     let lit: Bool
+    var blinking = false
     var body: some View {
+        if blinking {
+            TimelineView(.periodic(from: .now, by: 0.6)) { ctx in
+                let on = Int(ctx.date.timeIntervalSinceReferenceDate / 0.6) % 2 == 0
+                PilotLamp(color: color, lit: lit && on)
+            }
+        } else {
+            lamp
+        }
+    }
+
+    private var lamp: some View {
         ZStack {
             Circle().fill(Brass.metal).frame(width: 18, height: 18)
             Circle()
@@ -454,12 +528,13 @@ struct ToggleLever: View {
 
 /// Interruptor geral: alavanca grande com lâmpada.
 struct MasterSwitch: View {
+    let t: Strings
     @Binding var isOn: Bool
     var body: some View {
         VStack(spacing: 3) {
             PilotLamp(color: .red, lit: isOn)
-            ToggleLeverMini(isOn: $isOn)
-            Engraved("FORÇA", size: 7)
+            ToggleLeverMini(isOn: $isOn).help(isOn ? t.powerOff : t.powerOn)
+            Engraved(t.power, size: 7)
         }
     }
 }
@@ -475,7 +550,6 @@ struct ToggleLeverMini: View {
         }
         .contentShape(Rectangle())
         .onTapGesture { withAnimation(.spring(response: 0.18, dampingFraction: 0.55)) { isOn.toggle() } }
-        .help(isOn ? "Desligar a ponte" : "Ligar a ponte")
     }
 }
 
@@ -504,6 +578,30 @@ struct NixieCounter: View {
     }
 }
 
+/// Seletor de idioma: três teclas de latão com lâmpada no idioma ativo.
+struct LanguageSelector: View {
+    let title: String
+    @Binding var lang: String
+    var body: some View {
+        VStack(spacing: 3) {
+            HStack(spacing: 3) {
+                ForEach(Lang.allCases) { l in
+                    let on = lang == l.rawValue
+                    Text(l.rawValue.uppercased()).font(.engraved(9))
+                        .foregroundStyle(on ? Brass.cream : Brass.ink.opacity(0.8))
+                        .frame(width: 26, height: 18)
+                        .background(RoundedRectangle(cornerRadius: 3).fill(on ? AnyShapeStyle(Color(red: 0.12, green: 0.07, blue: 0.04)) : AnyShapeStyle(Brass.metal)))
+                        .overlay(RoundedRectangle(cornerRadius: 3).stroke(Brass.ink.opacity(0.6), lineWidth: 0.8))
+                        .shadow(color: on ? Brass.glow.opacity(0.6) : .black.opacity(0.3), radius: on ? 3 : 1, y: on ? 0 : 1)
+                        .contentShape(Rectangle())
+                        .onTapGesture { lang = l.rawValue }
+                }
+            }
+            Engraved(title, size: 7)
+        }
+    }
+}
+
 private extension String {
     func leftPad(to n: Int) -> String { count >= n ? self : String(repeating: "0", count: n - count) + self }
 }
@@ -517,10 +615,10 @@ struct BrassButton: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: systemImage).font(.system(size: 11, weight: .bold))
-                Text(title).font(.engraved(10)).tracking(1)
+                Text(title).font(.engraved(9.5)).tracking(0.6).fixedSize()
             }
             .foregroundStyle(Brass.ink)
-            .padding(.horizontal, 12).padding(.vertical, 7)
+            .padding(.horizontal, 10).padding(.vertical, 7)
             .background(Capsule().fill(Brass.metal))
             .overlay(Capsule().stroke(Brass.ink.opacity(0.7), lineWidth: 1))
             .shadow(color: .black.opacity(0.45), radius: 2, y: 2)

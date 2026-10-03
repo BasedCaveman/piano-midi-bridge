@@ -1,8 +1,10 @@
 # 🎹 Piano MIDI Bridge
 
+**Português** · [English](README.en.md) · [Español](README.es.md)
+
 Use o **Smart Pianist** (ou outro app MIDI do iPhone/iPad) com um piano digital ligado **por USB ao Mac**, sem comprar o adaptador Bluetooth MIDI (ex.: Yamaha UD-BT01).
 
-O Mac vira um "adaptador Bluetooth MIDI": o iPhone se conecta ao Mac por Bluetooth e o app repassa as mensagens MIDI entre o iPhone e o piano USB, nos dois sentidos (notas, pedais, comandos e SysEx).
+O Mac vira um "adaptador Bluetooth MIDI": o app anuncia o Mac como dispositivo Bluetooth MIDI (sem precisar da janela de configuração do macOS), o iPhone se conecta a ele e o app repassa as mensagens MIDI entre o iPhone e o piano USB, nos dois sentidos (notas, pedais, comandos e SysEx).
 
 ```
 iPhone (Smart Pianist) ──Bluetooth MIDI──▶ Mac (Piano MIDI Bridge) ──USB──▶ Piano
@@ -36,12 +38,17 @@ Testado com **Yamaha P-145BT** + Smart Pianist no iPhone. Deve funcionar com qua
 ## Como usar
 
 1. Ligue o piano no Mac pelo cabo USB.
-2. Abra o app e confira se a lâmpada de **INSTRUMENTO** está verde com o nome do piano.
-3. Clique em **ANUNCIAR BLUETOOTH**, dê um nome (ex.: `P-145`) e clique em **Anunciar**.
-   - Se o app do iPhone não encontrar o Mac, use o nome `UD-BT01`.
-4. No iPhone, abra o **Smart Pianist → Instrumento → Bluetooth** e conecte no nome escolhido.
+2. Abra o app. Na primeira vez o macOS pede permissão de **Bluetooth**: clique em **Permitir**.
+3. Confira o painel: **INSTRUMENTO** verde com o nome do piano e **TRANSMISSOR** verde com o nome anunciado (padrão `Piano Bridge`; clique no nome para trocar).
+4. No iPhone, no **Smart Pianist**:
+   1. Toque no ícone de conexão (canto superior esquerdo) → **Start Connection Wizard**.
+   2. **Next** → **Bluetooth** → **Yes** → **Yes** → **Next**.
+   3. Toque em **Connect Bluetooth MIDI Device**, escolha `Piano Bridge` (se o Mac já foi usado como dispositivo Bluetooth MIDI antes, o iPhone pode mostrar o nome antigo) e toque em ✓.
+   4. **Next** → escolha o seu piano na lista (ex.: `P-145BT`).
    - ⚠️ Não pareie pelos Ajustes → Bluetooth do iPhone; conecte **por dentro do app**.
-5. A lâmpada de **RECEPTOR** fica verde com o nome do iPhone e as válvulas acendem. Pronto!
+5. A lâmpada de **RECEPTOR** fica verde e o ícone do instrumento fica verde no Smart Pianist. Pronto!
+
+Nas próximas vezes, basta abrir o app no Mac: o Smart Pianist reconecta sozinho.
 
 ### O painel
 
@@ -51,18 +58,22 @@ Testado com **Yamaha P-145BT** + Smart Pianist no iPhone. Deve funcionar com qua
 | **VU meters** | Tráfego MIDI em cada sentido: piano → iPhone e iPhone → piano |
 | **Válvulas** | Acendem com a ponte ligada e brilham mais com o tráfego |
 | **INSTRUMENTO** | Escolhe o piano USB (clique no nome) |
+| **TRANSMISSOR** | Nome que o iPhone vê (clique para editar). Lâmpada verde = anunciando; vermelha = Bluetooth do Mac desligado ou não permitido |
 | **RECEPTOR** | Mostra o iPhone/iPad conectado por Bluetooth |
 | **FILTRO CLOCK F8** | Não envia o clock do piano ao iPhone. Recomendado: o clock gera dezenas de mensagens por segundo e pode derrubar a conexão Bluetooth |
 | **FILTRO SENSING FE** | Não envia o "estou vivo" (active sensing) do piano. Recomendado pelo mesmo motivo |
 | **LIGAR COM O MAC** | Inicia o app automaticamente no login |
 | Contador Nixie | Total de bytes filtrados |
-| **ANUNCIAR BLUETOOTH** | Abre a janela do macOS para anunciar o Mac como dispositivo Bluetooth MIDI |
+| **IDIOMA** | Português, inglês ou espanhol (começa no idioma do sistema) |
 | **DESLIGAR** | Encerra o app |
 
 ## Problemas comuns
 
 - **O piano não aparece:** confira o cabo (tem que ser de dados) e a porta USB TO HOST. Ele deve aparecer em *Configuração de Áudio e MIDI*.
-- **O iPhone não encontra o Mac:** abra de novo a janela de Bluetooth MIDI e confirme que está **Anunciando**. Feche e reabra o Smart Pianist. Teste o nome `UD-BT01`.
+- **O Smart Pianist diz que quer usar Bluetooth "para novas conexões" e não acha o Mac:** o Bluetooth do iPhone foi desligado pela Central de Controle, o que bloqueia aparelhos novos até o dia seguinte. Vá em **Ajustes → Bluetooth** no iPhone e ligue a chave.
+- **O iPhone não encontra o Mac:** confira se o **TRANSMISSOR** está verde no painel. Feche e reabra o Smart Pianist. O iPhone pode mostrar o nome antigo do Mac em vez de `Piano Bridge`.
+- **TRANSMISSOR vermelho:** ligue o Bluetooth do Mac ou permita o Bluetooth para o app em **Ajustes do Sistema → Privacidade e Segurança → Bluetooth** (o painel tem um botão **ABRIR AJUSTES**).
+- **Para reportar um problema:** anexe o arquivo `~/Library/Logs/Piano MIDI Bridge.log`.
 - **A conexão cai:** deixe os dois filtros ligados e mantenha o iPhone perto do Mac.
 - **O app conecta, mas não reconhece o piano:** desligue e ligue a ponte pelo interruptor e reconecte pelo app.
 
@@ -81,6 +92,8 @@ Com um certificado Developer ID, defina `DEVELOPER_ID="Developer ID Application:
 
 ```
 Sources/MIDIBridge.swift   motor CoreMIDI: detecta portas, repassa e filtra mensagens
+Sources/BLEMIDIPeripheral.swift  transmissor Bluetooth LE MIDI embutido (anúncio, codificação BLE MIDI)
+Sources/DiagLog.swift      log de diagnóstico em ~/Library/Logs
 Sources/App.swift          app, janela e ícone da barra de menus
 Sources/SteampunkUI.swift  painel steampunk: válvulas, VU meters, chaves, Nixie
 Resources/Info.plist       metadados do app
@@ -88,15 +101,7 @@ scripts/make-icon.swift    gera o ícone
 build.sh                   compila, monta o .app, assina e cria o .dmg
 ```
 
-Como funciona: o app escuta o instrumento USB escolhido e todas as portas do driver Bluetooth MIDI da Apple. Tudo que chega de um lado é reenviado ao outro. Os bytes de tempo real `F8`/`FE` são removidos só no sentido piano → iPhone, quando os filtros estão ligados.
-
----
-
-## English (short)
-
-Menu-bar app that turns your Mac into a Bluetooth MIDI adapter. Your iPhone/iPad (e.g. Yamaha **Smart Pianist**) connects to the Mac over Bluetooth MIDI, and the app forwards all MIDI (including SysEx) to and from a piano connected to the Mac by USB. No UD-BT01 needed. It can optionally filter MIDI clock (F8) and active sensing (FE) to keep the BLE link stable.
-
-Install the DMG from Releases, allow it under *System Settings → Privacy & Security → Open Anyway*, click the 🎹 menu-bar icon, then **Configure Bluetooth MIDI → Advertise**, and connect from the app on the iPhone. Build with `./build.sh` (Command Line Tools only). Requires macOS 14+.
+Como funciona: o app publica o serviço Bluetooth LE MIDI padrão pelo CoreBluetooth e escuta o instrumento USB escolhido (e também as portas do driver Bluetooth MIDI da Apple, se você usar a janela do macOS). Tudo que chega de um lado é reenviado ao outro. Os bytes de tempo real `F8`/`FE` são removidos só no sentido piano → iPhone, quando os filtros estão ligados.
 
 ## Licença
 

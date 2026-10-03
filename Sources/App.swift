@@ -43,10 +43,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @MainActor func applicationDidFinishLaunching(_ notification: Notification) {
+        DiagLog.write("App iniciado — versão \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] ?? "?"), macOS \(ProcessInfo.processInfo.operatingSystemVersionString)")
         #if DEBUG
         // Gera uma imagem do painel sem abrir janela: SNAPSHOT=/caminho.png
         if let out = ProcessInfo.processInfo.environment["SNAPSHOT"] {
             SteampunkPanel.snapshotMode = true
+            SteampunkPanel.snapshotWaiting = ProcessInfo.processInfo.environment["SNAPSHOT_WAITING"] != nil
+            bridge.debugSetBLEStatus(SteampunkPanel.snapshotWaiting ? .advertising : .connected(1))
+            if let l = ProcessInfo.processInfo.environment["SNAPSHOT_LANG"] { UserDefaults.standard.set(l, forKey: "lang") }
             let r = ImageRenderer(content: SteampunkPanel().environmentObject(bridge))
             r.scale = 2
             if let img = r.nsImage, let tiff = img.tiffRepresentation,

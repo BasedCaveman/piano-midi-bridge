@@ -1,0 +1,18 @@
+PIANO MIDI BRIDGE — instalación rápida
+
+1. Arrastre "Piano MIDI Bridge" a la carpeta Aplicaciones.
+2. Abra la app. Si macOS la bloquea: Ajustes del Sistema → Privacidad
+   y seguridad → "Abrir igualmente". Después, permita el Bluetooth.
+3. Conecte el piano al Mac con un cable USB (puerto USB TO HOST).
+4. En el iPhone, en Smart Pianist: icono de conexión → Start Connection
+   Wizard → Next → Bluetooth → Yes → Yes → Next → Connect Bluetooth
+   MIDI Device → "Piano Bridge" → ✓ → Next → elija su piano.
+
+¿No aparece en el iPhone? Ajustes → Bluetooth → active el interruptor
+(apagarlo desde el Centro de control bloquea dispositivos nuevos).
+
+Deje activados los interruptores "FILTRO CLOCK" y "FILTRO SENSING" para
+una conexión estable. Cambie el idioma con PT / EN / ES en el panel.
+
+Puede cerrar el panel: el puente sigue activo en el icono de teclado
+de la barra de menús. Para reabrirlo, abra la app de nuevo.

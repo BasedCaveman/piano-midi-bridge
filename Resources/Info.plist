@@ -13,7 +13,7 @@
 	<key>LSMinimumSystemVersion</key><string>14.0</string>
 	<key>LSUIElement</key><true/>
 	<key>LSApplicationCategoryType</key><string>public.app-category.music</string>
-	<key>NSBluetoothAlwaysUsageDescription</key><string>Usado para anunciar o Mac como dispositivo Bluetooth MIDI para o iPhone/iPad.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key><string>Used to advertise the Mac as a Bluetooth MIDI device for iPhone/iPad.</string>
 	<key>NSHumanReadableCopyright</key><string>MIT License</string>
 </dict>
 </plist>

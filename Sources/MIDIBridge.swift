@@ -11,7 +11,7 @@ struct MIDIEndpointInfo: Identifiable, Hashable {
 }
 
 /// Estado compartilhado com a thread de MIDI (CoreMIDI chama o bloco de entrada fora da main thread).
-private final class SharedState: @unchecked Sendable {
+final class SharedState: @unchecked Sendable {
     private let lock = OSAllocatedUnfairLock()
     private var _pianoID: Int32?
     private var _filterClock = true
@@ -49,6 +49,16 @@ final class MIDIBridge: ObservableObject {
     @Published private(set) var rateToDevice: Double = 0
     @Published private(set) var rateToPiano: Double = 0
     @Published private(set) var lastError: String?
+    /// Estado do transmissor Bluetooth MIDI embutido.
+    @Published private(set) var bleStatus: BLEMIDIPeripheral.Status = .starting
+    /// Nome que o iPhone vê ao procurar dispositivos Bluetooth.
+    @Published var bleName: String {
+        didSet {
+            let n = bleName.trimmingCharacters(in: .whitespaces)
+            UserDefaults.standard.set(n, forKey: "bleName")
+            if !n.isEmpty { ble.rename(n) }
+        }
+    }
 
     @Published var pianoID: Int32? {
         didSet { state.pianoID = pianoID; UserDefaults.standard.set(pianoName, forKey: "pianoName"); reconnect() }
@@ -65,12 +75,14 @@ final class MIDIBridge: ObservableObject {
     private var inPort = MIDIPortRef()
     private var outPort = MIDIPortRef()
     private var timer: Timer?
+    private let ble = BLEMIDIPeripheral()
 
     var pianoName: String? { endpoints.first { $0.id == pianoID }?.name }
     var devices: [MIDIEndpointInfo] { endpoints.filter { $0.id != pianoID && $0.isBluetooth } }
 
     init() {
         let d = UserDefaults.standard
+        bleName = d.string(forKey: "bleName") ?? "Piano Bridge"
         filterClock = d.object(forKey: "filterClock") as? Bool ?? true
         filterActiveSensing = d.object(forKey: "filterActiveSensing") as? Bool ?? true
         state.filterClock = filterClock
@@ -80,14 +92,18 @@ final class MIDIBridge: ObservableObject {
             guard notif.pointee.messageID == .msgSetupChanged else { return }
             Task { @MainActor in self?.refreshEndpoints() }
         }
-        if status != noErr { lastError = "Falha ao iniciar CoreMIDI (\(status))"; return }
+        if status != noErr { lastError = "\(Strings.of(.current).coreMIDIError) (\(status))"; return }
         MIDIOutputPortCreate(client, "out" as CFString, &outPort)
 
         let state = self.state
         let outPort = self.outPort
+        let ble = self.ble
         MIDIInputPortCreateWithBlock(client, "in" as CFString, &inPort) { list, refCon in
-            MIDIBridge.forward(list, fromPiano: Int(bitPattern: refCon) == 1, state: state, outPort: outPort)
+            MIDIBridge.forward(list, fromPiano: Int(bitPattern: refCon) == 1, state: state, outPort: outPort, ble: ble)
         }
+        // Mensagens do iPhone pelo transmissor embutido vão direto para o piano.
+        ble.onMIDI = { bytes in MIDIBridge.sendToPiano(bytes, state: state, outPort: outPort) }
+        ble.onStatus = { [weak self] st in self?.bleStatus = st }
 
         refreshEndpoints()
         timer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
@@ -102,8 +118,31 @@ final class MIDIBridge: ObservableObject {
         if d.object(forKey: "autoStart") as? Bool ?? true { start() }
     }
 
-    func start() { isRunning = true; UserDefaults.standard.set(true, forKey: "autoStart"); reconnect() }
-    func stop() { isRunning = false; UserDefaults.standard.set(false, forKey: "autoStart"); disconnectAll() }
+    func start() {
+        DiagLog.write("Ponte ligada (piano: \(pianoName ?? "nenhum"), nome BLE: \(bleName))")
+        isRunning = true
+        UserDefaults.standard.set(true, forKey: "autoStart")
+        reconnect()
+        ble.start(name: bleName.isEmpty ? "Piano Bridge" : bleName)
+    }
+    func stop() {
+        DiagLog.write("Ponte desligada")
+        isRunning = false
+        UserDefaults.standard.set(false, forKey: "autoStart")
+        disconnectAll()
+        ble.stop()
+    }
+
+    #if DEBUG
+    /// Só para o snapshot do README (o binário de snapshot não tem permissão de Bluetooth).
+    func debugSetBLEStatus(_ st: BLEMIDIPeripheral.Status) { bleStatus = st }
+    #endif
+
+    /// iPhone/iPad conectado, seja pelo transmissor embutido ou pelo Bluetooth MIDI do macOS.
+    var isLinked: Bool {
+        if case .connected = bleStatus { return true }
+        return !devices.isEmpty
+    }
 
     // MARK: - Endpoints
 
@@ -115,6 +154,7 @@ final class MIDIBridge: ObservableObject {
             let info = MIDIBridge.info(src)
             if seen.insert(info.id).inserted { list.append(info) }
         }
+        if list != endpoints { DiagLog.write("MIDI: portas = " + list.map { "\($0.name)\($0.isBluetooth ? " [BT]" : "")" }.joined(separator: ", ")) }
         endpoints = list
 
         // Mantém o piano escolhido; senão tenta o nome salvo; senão o primeiro instrumento não-Bluetooth.
@@ -165,7 +205,7 @@ final class MIDIBridge: ObservableObject {
 
     // MARK: - Encaminhamento (thread do CoreMIDI)
 
-    nonisolated private static func destinations(piano: Bool, pianoID: Int32) -> [MIDIEndpointRef] {
+    nonisolated static func destinations(piano: Bool, pianoID: Int32) -> [MIDIEndpointRef] {
         (0..<MIDIGetNumberOfDestinations()).map { MIDIGetDestination($0) }.filter {
             let i = info($0)
             return piano ? i.id == pianoID || (i.name == nameOfSource(pianoID) && !i.isBluetooth)
@@ -185,7 +225,7 @@ final class MIDIBridge: ObservableObject {
     }
 
     nonisolated private static func forward(_ list: UnsafePointer<MIDIPacketList>, fromPiano: Bool,
-                                            state: SharedState, outPort: MIDIPortRef) {
+                                            state: SharedState, outPort: MIDIPortRef, ble: BLEMIDIPeripheral) {
         guard let pianoID = state.pianoID else { return }
 
         // Bytes de tempo real (F8 clock, FE active sensing) têm 1 byte e podem
@@ -217,8 +257,29 @@ final class MIDIBridge: ObservableObject {
 
         if removed > 0 { state.count(filtered: removed) }
         guard total > 0 else { return }
+        if fromPiano {
+            // também para o transmissor Bluetooth embutido
+            var all: [UInt8] = []
+            for p in UnsafePointer(out).unsafeSequence() {
+                all += UnsafeRawBufferPointer(start: UnsafeRawPointer(p) + dataOffset, count: Int(p.pointee.length))
+            }
+            ble.send(all)
+        }
         let targets = destinations(piano: !fromPiano, pianoID: pianoID)
         for d in targets { MIDISend(outPort, d, out) }
         if fromPiano { state.count(toDevice: total) } else { state.count(toPiano: total) }
+    }
+
+    /// Bytes vindos do transmissor embutido → piano.
+    nonisolated static func sendToPiano(_ bytes: [UInt8], state: SharedState, outPort: MIDIPortRef) {
+        guard let pianoID = state.pianoID, !bytes.isEmpty else { return }
+        let bufferSize = 65536
+        let buffer = UnsafeMutableRawPointer.allocate(byteCount: bufferSize, alignment: 4)
+        defer { buffer.deallocate() }
+        let list = buffer.assumingMemoryBound(to: MIDIPacketList.self)
+        let cur = MIDIPacketListInit(list)
+        _ = MIDIPacketListAdd(list, bufferSize, cur, 0, bytes.count, bytes)
+        for d in destinations(piano: true, pianoID: pianoID) { MIDISend(outPort, d, list) }
+        state.count(toPiano: bytes.count)
     }
 }

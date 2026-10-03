@@ -37,7 +37,7 @@ STAGE="$BUILD/dmg"
 mkdir -p "$STAGE"
 cp -R "$APP" "$STAGE/"
 ln -s /Applications "$STAGE/Applications"
-cp "docs/LEIA-ME.txt" "$STAGE/LEIA-ME.txt" 2>/dev/null || true
+cp docs/*.txt "$STAGE/"
 hdiutil create -volname "$APP_NAME" -srcfolder "$STAGE" -ov -format UDZO "$BUILD/PianoMIDIBridge-$VERSION.dmg" >/dev/null
 rm -rf "$STAGE"
 
