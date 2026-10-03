@@ -263,7 +263,8 @@ public sealed class MainWindow : Window
         _txLamp.Color = st is BleStatus.Advertising or BleStatus.Connected ? Colors.LimeGreen
                       : st is BleStatus.Starting or BleStatus.Idle ? Colors.Orange : Colors.Red;
         _txLamp.Blinking = st == BleStatus.Advertising;
-        _txPlate.Set($"Ⓑ  {Environment.MachineName}  ({t.TransmitterName})");
+        _txPlate.Set(Environment.MachineName);
+        _txPlate.ToolTip = t.TransmitterName;
 
         // receptor
         _rxLamp.Lit = active; _rxLamp.Color = _bridge.IsLinked ? Colors.LimeGreen : Colors.Orange;
