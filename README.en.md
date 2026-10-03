@@ -18,13 +18,30 @@ Tested with a **Yamaha P-145BT** + Smart Pianist on iPhone. It should work with 
 
 > Independent project, not affiliated with Yamaha. "Yamaha", "Smart Pianist" and "UD-BT01" are trademarks of their respective owners.
 
-## Requirements
+## 🪟 Windows (beta)
+
+There is also a version for **Windows 10 (2004+) and Windows 11**, with the same panel and the same three languages.
+
+1. Download `PianoMIDIBridge-Setup-x.y.z-x64.exe` (or `-arm64` for ARM PCs) from **[Releases](../../releases)**. A portable `.zip` is also available.
+2. Install it (no administrator needed). If SmartScreen warns you, click **More info → Run anyway**.
+3. Connect the piano to the PC with the USB cable and open the app. Closing the window keeps the bridge running from the 🎹 icon in the system tray, near the clock.
+4. On the iPhone, follow the same Smart Pianist steps described below. The PC shows up with the **computer's Bluetooth name**: Windows doesn't allow choosing another name.
+
+Differences from macOS:
+- The PC's Bluetooth adapter must support Bluetooth LE **peripheral** mode. Most current adapters do; if not, the panel tells you.
+- On Windows only one program at a time can use the piano: close DAWs or Yamaha apps that have it open.
+- Diagnostic log: `%LOCALAPPDATA%\PianoMidiBridge\PianoMidiBridge.log`.
+- Code in [`windows/`](windows/) (C#/.NET 8, WPF). The installer and portable builds are produced by GitHub Actions.
+
+> **Beta:** the Windows version is compiled and automatically tested (Bluetooth MIDI codec and UI) but hasn't been tested with a real piano and iPhone yet. Reports are welcome in [Issues](../../issues).
+
+## Requirements (macOS)
 
 - macOS 14 (Sonoma) or later, Apple Silicon or Intel
 - A Mac with Bluetooth
 - Piano connected to the Mac with a USB cable (the piano's **USB TO HOST** port)
 
-## Installation
+## Installation (macOS)
 
 1. Download `PianoMIDIBridge-x.y.z.dmg` from **[Releases](../../releases)**.
 2. Open the DMG and drag **Piano MIDI Bridge** to **Applications**.

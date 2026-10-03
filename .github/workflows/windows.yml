@@ -1,0 +1,91 @@
+# Compila, testa, tira um print e empacota a versão Windows.
+# Tag "win-vX.Y.Z" publica o release com instaladores e versões portáteis.
+name: Windows
+
+on:
+  push:
+    branches: [main]
+    paths: ["windows/**", "Resources/AppIcon.png", ".github/workflows/windows.yml"]
+    tags: ["win-v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: windows
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Versão
+        id: ver
+        run: |
+          $v = "${{ github.ref_name }}" -replace '^win-v', ''
+          if ("${{ github.ref_type }}" -ne "tag") { $v = "0.0.${{ github.run_number }}" }
+          "version=$v" >> $env:GITHUB_OUTPUT
+
+      - name: Testes do codec BLE MIDI
+        run: dotnet run --project tests/CodecTests.csproj -c Release
+
+      - name: Publicar (x64 e arm64)
+        run: |
+          foreach ($rid in "x64", "arm64") {
+            dotnet publish src/PianoMidiBridge.csproj -c Release -r "win-$rid" --self-contained true `
+              -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=none `
+              -p:Version=${{ steps.ver.outputs.version }} -o "publish/$rid"
+          }
+          Get-ChildItem publish -Recurse | Select-Object FullName, Length
+
+      - name: Print do painel (runner sem Bluetooth nem piano)
+        continue-on-error: true
+        run: |
+          $p = Start-Process -FilePath "publish/x64/PianoMidiBridge.exe" -PassThru
+          Start-Sleep -Seconds 10
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+          $g = [System.Drawing.Graphics]::FromImage($bmp)
+          $g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+          New-Item -ItemType Directory -Force dist | Out-Null
+          $bmp.Save("dist/screenshot.png")
+          Copy-Item "$env:LOCALAPPDATA/PianoMidiBridge/PianoMidiBridge.log" dist/run.log -ErrorAction SilentlyContinue
+          Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+          Get-Content dist/run.log -ErrorAction SilentlyContinue
+
+      - name: Instaladores (Inno Setup)
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress; $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" }
+          foreach ($rid in "x64", "arm64") {
+            & $iscc /DAppVersion=${{ steps.ver.outputs.version }} /DArch=$rid "/DSourceDir=..\publish\$rid" installer/PianoMidiBridge.iss
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+
+      - name: Versões portáteis (.zip)
+        run: |
+          foreach ($rid in "x64", "arm64") {
+            Compress-Archive -Path "publish/$rid/*" -DestinationPath "dist/PianoMIDIBridge-${{ steps.ver.outputs.version }}-$rid-portable.zip" -Force
+          }
+          Get-ChildItem dist | Select-Object Name, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: piano-midi-bridge-windows-${{ steps.ver.outputs.version }}
+          path: windows/dist/*
+
+      - name: Publicar release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $files = Get-ChildItem dist -File | Where-Object { $_.Name -notin "screenshot.png", "run.log" } | ForEach-Object { $_.FullName }
+          gh release upload "${{ github.ref_name }}" @files --clobber

@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <!-- APIs WinRT de MIDI e Bluetooth LE (GATT server) a partir do Windows 10 2004 -->
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Permite compilar fora do Windows (CI e macOS) -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <AssemblyName>PianoMidiBridge</AssemblyName>
+    <RootNamespace>PianoMidiBridge</RootNamespace>
+    <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Version>1.0.0</Version>
+    <!-- DPI é definido no app.manifest (WPF); o aviso é do analisador do Windows Forms -->
+    <NoWarn>$(NoWarn);WFAC010</NoWarn>
+    <Product>Piano MIDI Bridge</Product>
+    <Company>Piano MIDI Bridge contributors</Company>
+    <Copyright>MIT License</Copyright>
+  </PropertyGroup>
+
+  <!-- Windows Forms só é usado para o ícone da bandeja: sem usings globais dele -->
+  <ItemGroup>
+    <Using Remove="System.Drawing" />
+    <Using Remove="System.Windows.Forms" />
+    <Using Include="System.IO" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\Fonts\*.ttf" />
+    <Resource Include="Assets\AppIcon.png" />
+    <Resource Include="Assets\AppIcon.ico" />
+  </ItemGroup>
+
+</Project>

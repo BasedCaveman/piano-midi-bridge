@@ -18,13 +18,30 @@ Probado con un **Yamaha P-145BT** + Smart Pianist en iPhone. Debería funcionar 
 
 > Proyecto independiente, sin relación con Yamaha. "Yamaha", "Smart Pianist" y "UD-BT01" son marcas de sus respectivos dueños.
 
-## Requisitos
+## 🪟 Windows (beta)
+
+También hay una versión para **Windows 10 (2004+) y Windows 11**, con el mismo panel y los mismos tres idiomas.
+
+1. Descargue en **[Releases](../../releases)** el `PianoMIDIBridge-Setup-x.y.z-x64.exe` (o `-arm64` para PCs ARM). También hay una versión portátil `.zip`.
+2. Instálelo (no pide administrador). Si SmartScreen avisa, haga clic en **Más información → Ejecutar de todas formas**.
+3. Conecte el piano al PC con el cable USB y abra la app. Cerrar la ventana deja el puente activo en el icono 🎹 de la bandeja del sistema, junto al reloj.
+4. En el iPhone, siga los mismos pasos de Smart Pianist descritos abajo. El PC aparece con el **nombre Bluetooth del equipo**: en Windows no se puede elegir otro nombre.
+
+Diferencias con macOS:
+- El adaptador Bluetooth del PC debe admitir el modo **periférico** de Bluetooth LE. La mayoría de los adaptadores actuales lo admite; si no, el panel lo indica.
+- En Windows solo un programa a la vez puede usar el piano: cierre DAWs o apps de Yamaha que lo tengan abierto.
+- Registro de diagnóstico: `%LOCALAPPDATA%\PianoMidiBridge\PianoMidiBridge.log`.
+- Código en [`windows/`](windows/) (C#/.NET 8, WPF). El instalador y las versiones portátiles se generan con GitHub Actions.
+
+> **Beta:** la versión para Windows está compilada y probada automáticamente (códec Bluetooth MIDI e interfaz), pero aún no se ha probado con un piano y un iPhone reales. Los informes son bienvenidos en [Issues](../../issues).
+
+## Requisitos (macOS)
 
 - macOS 14 (Sonoma) o posterior, Apple Silicon o Intel
 - Mac con Bluetooth
 - Piano conectado al Mac con cable USB (puerto **USB TO HOST** del piano)
 
-## Instalación
+## Instalación (macOS)
 
 1. Descargue `PianoMIDIBridge-x.y.z.dmg` en **[Releases](../../releases)**.
 2. Abra el DMG y arrastre **Piano MIDI Bridge** a **Aplicaciones**.
