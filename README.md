@@ -101,7 +101,7 @@ scripts/make-icon.swift    gera o ícone
 build.sh                   compila, monta o .app, assina e cria o .dmg
 ```
 
-Como funciona: o app publica o serviço Bluetooth LE MIDI padrão pelo CoreBluetooth e escuta o instrumento USB escolhido (e também as portas do driver Bluetooth MIDI da Apple, se você usar a janela do macOS). Tudo que chega de um lado é reenviado ao outro. Os bytes de tempo real `F8`/`FE` são removidos só no sentido piano → iPhone, quando os filtros estão ligados.
+Como funciona: o app anuncia o Mac como dispositivo Bluetooth LE MIDI pelo CoreBluetooth, e é isso que faz o Mac aparecer no iPhone sem a janela de configuração do macOS. Quando o iPhone conecta, normalmente é o driver Bluetooth MIDI do próprio macOS que assume a sessão (ele cria a porta "<nome do Mac> Bluetooth"), e o app repassa tudo entre essa porta e o piano USB. Se o iPhone usar o serviço do app, o próprio app codifica e decodifica o BLE MIDI. Nos dois casos, tudo que chega de um lado é reenviado ao outro. Os bytes de tempo real `F8`/`FE` são removidos só no sentido piano → iPhone, quando os filtros estão ligados.
 
 ## Licença
 
