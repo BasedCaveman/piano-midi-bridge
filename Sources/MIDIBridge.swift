@@ -45,6 +45,9 @@ final class MIDIBridge: ObservableObject {
     @Published private(set) var toDevice = 0
     @Published private(set) var toPiano = 0
     @Published private(set) var filtered = 0
+    /// Bytes por segundo em cada sentido (alimenta os VU meters).
+    @Published private(set) var rateToDevice: Double = 0
+    @Published private(set) var rateToPiano: Double = 0
     @Published private(set) var lastError: String?
 
     @Published var pianoID: Int32? {
@@ -87,10 +90,13 @@ final class MIDIBridge: ObservableObject {
         }
 
         refreshEndpoints()
-        timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+        timer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 guard let self else { return }
-                (self.toDevice, self.toPiano, self.filtered) = self.state.counters()
+                let (dev, pno, flt) = self.state.counters()
+                self.rateToDevice = Double(dev - self.toDevice) / 0.2
+                self.rateToPiano = Double(pno - self.toPiano) / 0.2
+                (self.toDevice, self.toPiano, self.filtered) = (dev, pno, flt)
             }
         }
         if d.object(forKey: "autoStart") as? Bool ?? true { start() }

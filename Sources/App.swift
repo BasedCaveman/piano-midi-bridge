@@ -4,114 +4,85 @@ import ServiceManagement
 
 @main
 struct PianoMIDIBridgeApp: App {
-    @StateObject private var bridge = MIDIBridge()
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
         MenuBarExtra {
-            ContentView().environmentObject(bridge)
+            SteampunkPanel().environmentObject(appDelegate.bridge)
         } label: {
-            Image(systemName: bridge.isRunning && !bridge.devices.isEmpty ? "pianokeys.inverse" : "pianokeys")
+            MenuBarIcon().environmentObject(appDelegate.bridge)
         }
         .menuBarExtraStyle(.window)
     }
 }
 
-struct ContentView: View {
+struct MenuBarIcon: View {
     @EnvironmentObject var bridge: MIDIBridge
-    @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
-    @State private var btWindow: CABTLEMIDIWindowController?
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Image(systemName: "pianokeys").font(.title2)
-                Text("Piano MIDI Bridge").font(.headline)
-                Spacer()
-                Toggle("", isOn: Binding(get: { bridge.isRunning },
-                                         set: { $0 ? bridge.start() : bridge.stop() }))
-                    .toggleStyle(.switch).labelsHidden()
-            }
-
-            Divider()
-
-            row("Instrumento (USB)") {
-                let instruments = bridge.endpoints.filter { !$0.isBluetooth }
-                if instruments.isEmpty {
-                    status(false, "Nenhum instrumento encontrado — conecte o cabo USB")
-                } else {
-                    Picker("", selection: $bridge.pianoID) {
-                        ForEach(instruments) { Text($0.name).tag(Optional($0.id)) }
-                    }.labelsHidden()
-                }
-            }
-
-            row("Dispositivo (Bluetooth)") {
-                if bridge.devices.isEmpty {
-                    status(false, "Aguardando conexão do iPhone/iPad")
-                } else {
-                    ForEach(bridge.devices) { status(true, $0.name) }
-                }
-            }
-
-            Divider()
-
-            Toggle("Filtrar clock MIDI (F8)", isOn: $bridge.filterClock)
-            Toggle("Filtrar active sensing (FE)", isOn: $bridge.filterActiveSensing)
-            Text("Reduz o tráfego no Bluetooth e evita quedas de conexão.")
-                .font(.caption).foregroundStyle(.secondary)
-
-            HStack(spacing: 14) {
-                stat("→ iPhone", bridge.toDevice)
-                stat("→ Piano", bridge.toPiano)
-                stat("Filtrados", bridge.filtered)
-            }
-
-            Divider()
-
-            Button {
-                let c = CABTLEMIDIWindowController()
-                c.showWindow(nil)
-                c.window?.makeKeyAndOrderFront(nil)
-                NSApp.activate(ignoringOtherApps: true)
-                btWindow = c
-            } label: {
-                Label("Configurar Bluetooth MIDI (Anunciar)…", systemImage: "antenna.radiowaves.left.and.right")
-            }
-
-            Toggle("Abrir ao iniciar o Mac", isOn: $launchAtLogin)
-                .onChange(of: launchAtLogin) { _, on in
-                    do { on ? try SMAppService.mainApp.register() : try SMAppService.mainApp.unregister() }
-                    catch { launchAtLogin = SMAppService.mainApp.status == .enabled }
-                }
-
-            HStack {
-                if let err = bridge.lastError { Text(err).font(.caption).foregroundStyle(.red) }
-                Spacer()
-                Button("Sair") { NSApp.terminate(nil) }
-            }
-        }
-        .padding(16)
-        .frame(width: 340)
-    }
-
-    @ViewBuilder private func row<C: View>(_ title: String, @ViewBuilder _ content: () -> C) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title).font(.caption).foregroundStyle(.secondary)
-            content()
-        }
-    }
-
-    private func status(_ ok: Bool, _ text: String) -> some View {
-        HStack(spacing: 6) {
-            Circle().fill(ok ? Color.green : Color.orange).frame(width: 8, height: 8)
-            Text(text).lineLimit(1)
-        }
-    }
-
-    private func stat(_ label: String, _ value: Int) -> some View {
-        VStack(alignment: .leading) {
-            Text(label).font(.caption2).foregroundStyle(.secondary)
-            Text(value.formatted()).font(.system(.caption, design: .monospaced))
-        }
+        Image(systemName: bridge.isRunning && !bridge.devices.isEmpty ? "pianokeys.inverse" : "pianokeys")
     }
 }
+
+/// Mostra uma janela ao abrir o app (o ícone da barra de menus pode ficar escondido
+/// atrás do notch) e garante que só uma cópia do app rode por vez.
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    @MainActor lazy var bridge = MIDIBridge()
+    private var window: NSWindow?
+    private static let showNotification = Notification.Name("io.github.pianomidibridge.show")
+
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        let me = NSRunningApplication.current
+        let others = NSRunningApplication.runningApplications(withBundleIdentifier: Bundle.main.bundleIdentifier ?? "")
+            .filter { $0.processIdentifier != me.processIdentifier }
+        if !others.isEmpty {
+            // Já existe uma cópia aberta: pede para ela mostrar a janela e encerra esta.
+            DistributedNotificationCenter.default().postNotificationName(Self.showNotification, object: nil,
+                                                                         userInfo: nil, deliverImmediately: true)
+            exit(0)
+        }
+    }
+
+    @MainActor func applicationDidFinishLaunching(_ notification: Notification) {
+        #if DEBUG
+        // Gera uma imagem do painel sem abrir janela: SNAPSHOT=/caminho.png
+        if let out = ProcessInfo.processInfo.environment["SNAPSHOT"] {
+            SteampunkPanel.snapshotMode = true
+            let r = ImageRenderer(content: SteampunkPanel().environmentObject(bridge))
+            r.scale = 2
+            if let img = r.nsImage, let tiff = img.tiffRepresentation,
+               let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) {
+                try? png.write(to: URL(fileURLWithPath: out))
+            }
+            exit(0)
+        }
+        #endif
+        DistributedNotificationCenter.default().addObserver(forName: Self.showNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.showWindow() }
+        }
+        showWindow()
+    }
+
+    @MainActor func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        showWindow()
+        return true
+    }
+
+    @MainActor func showWindow() {
+        if window == nil {
+            let host = NSHostingController(rootView: SteampunkPanel(showsWindowHint: true, topInset: 18).environmentObject(bridge))
+            let w = NSWindow(contentViewController: host)
+            w.title = "Piano MIDI Bridge"
+            w.styleMask = [.titled, .closable, .miniaturizable, .fullSizeContentView]
+            w.titlebarAppearsTransparent = true
+            w.titleVisibility = .hidden
+            w.isMovableByWindowBackground = true
+            w.backgroundColor = NSColor(red: 0.16, green: 0.08, blue: 0.04, alpha: 1)
+            w.isReleasedWhenClosed = false
+            w.center()
+            window = w
+        }
+        window?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+}
+

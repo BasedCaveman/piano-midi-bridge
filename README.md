@@ -8,6 +8,8 @@ O Mac vira um "adaptador Bluetooth MIDI": o iPhone se conecta ao Mac por Bluetoo
 iPhone (Smart Pianist) ──Bluetooth MIDI──▶ Mac (Piano MIDI Bridge) ──USB──▶ Piano
 ```
 
+<p align="center"><img src="docs/screenshot.png" width="470" alt="Painel do Piano MIDI Bridge: amplificador valvulado steampunk com VU meters, válvulas e chaves de alavanca"></p>
+
 Testado com **Yamaha P-145BT** + Smart Pianist no iPhone. Deve funcionar com qualquer instrumento USB-MIDI class-compliant.
 
 > Projeto independente, sem vínculo com a Yamaha. "Yamaha", "Smart Pianist" e "UD-BT01" são marcas de seus respectivos donos.
@@ -29,28 +31,33 @@ Testado com **Yamaha P-145BT** + Smart Pianist no iPhone. Deve funcionar com qua
      ```bash
      xattr -dr com.apple.quarantine "/Applications/Piano MIDI Bridge.app"
      ```
-4. O app aparece como um ícone de teclado 🎹 na **barra de menus** (não aparece no Dock).
+4. Ao abrir, aparece o painel do app. Pode fechá-lo: a ponte continua rodando no ícone 🎹 da **barra de menus** (o app não fica no Dock). Para ver o painel de novo, abra o app outra vez ou clique no 🎹.
 
 ## Como usar
 
 1. Ligue o piano no Mac pelo cabo USB.
-2. Clique no ícone 🎹 na barra de menus e confira se o piano aparece em **Instrumento (USB)**.
-3. Clique em **Configurar Bluetooth MIDI (Anunciar)…**, dê um nome (ex.: `P-145`) e clique em **Anunciar**.
+2. Abra o app e confira se a lâmpada de **INSTRUMENTO** está verde com o nome do piano.
+3. Clique em **ANUNCIAR BLUETOOTH**, dê um nome (ex.: `P-145`) e clique em **Anunciar**.
    - Se o app do iPhone não encontrar o Mac, use o nome `UD-BT01`.
 4. No iPhone, abra o **Smart Pianist → Instrumento → Bluetooth** e conecte no nome escolhido.
    - ⚠️ Não pareie pelos Ajustes → Bluetooth do iPhone; conecte **por dentro do app**.
-5. O ícone fica preenchido e o iPhone aparece em **Dispositivo (Bluetooth)**. Pronto!
+5. A lâmpada de **RECEPTOR** fica verde com o nome do iPhone e as válvulas acendem. Pronto!
 
-### Opções
+### O painel
 
-| Opção | O que faz |
+| Controle | O que faz |
 |---|---|
-| Interruptor no topo | Liga/desliga a ponte |
-| **Filtrar clock MIDI (F8)** | Não envia o clock do piano ao iPhone. Recomendado: o clock gera dezenas de mensagens por segundo e pode derrubar a conexão Bluetooth |
-| **Filtrar active sensing (FE)** | Não envia o "estou vivo" do piano. Recomendado pelo mesmo motivo |
-| Abrir ao iniciar o Mac | Inicia o app automaticamente no login |
-
-Os contadores mostram quantos bytes foram enviados em cada sentido e quantos foram filtrados.
+| Chave **FORÇA** (canto superior direito) | Liga/desliga a ponte |
+| **VU meters** | Tráfego MIDI em cada sentido: piano → iPhone e iPhone → piano |
+| **Válvulas** | Acendem com a ponte ligada e brilham mais com o tráfego |
+| **INSTRUMENTO** | Escolhe o piano USB (clique no nome) |
+| **RECEPTOR** | Mostra o iPhone/iPad conectado por Bluetooth |
+| **FILTRO CLOCK F8** | Não envia o clock do piano ao iPhone. Recomendado: o clock gera dezenas de mensagens por segundo e pode derrubar a conexão Bluetooth |
+| **FILTRO SENSING FE** | Não envia o "estou vivo" (active sensing) do piano. Recomendado pelo mesmo motivo |
+| **LIGAR COM O MAC** | Inicia o app automaticamente no login |
+| Contador Nixie | Total de bytes filtrados |
+| **ANUNCIAR BLUETOOTH** | Abre a janela do macOS para anunciar o Mac como dispositivo Bluetooth MIDI |
+| **DESLIGAR** | Encerra o app |
 
 ## Problemas comuns
 
@@ -64,8 +71,8 @@ Os contadores mostram quantos bytes foram enviados em cada sentido e quantos for
 Precisa só das Command Line Tools (`xcode-select --install`), não do Xcode completo.
 
 ```bash
-./build.sh                 # gera build/Piano MIDI Bridge.app e build/PianoMIDIBridge-1.0.0.dmg
-VERSION=1.1.0 ./build.sh   # outra versão
+./build.sh                 # gera build/Piano MIDI Bridge.app e build/PianoMIDIBridge-<versão>.dmg
+VERSION=1.2.0 ./build.sh   # outra versão
 ```
 
 Com um certificado Developer ID, defina `DEVELOPER_ID="Developer ID Application: Seu Nome (TEAMID)"` para assinar de verdade.
@@ -74,7 +81,8 @@ Com um certificado Developer ID, defina `DEVELOPER_ID="Developer ID Application:
 
 ```
 Sources/MIDIBridge.swift   motor CoreMIDI: detecta portas, repassa e filtra mensagens
-Sources/App.swift          interface SwiftUI na barra de menus
+Sources/App.swift          app, janela e ícone da barra de menus
+Sources/SteampunkUI.swift  painel steampunk: válvulas, VU meters, chaves, Nixie
 Resources/Info.plist       metadados do app
 scripts/make-icon.swift    gera o ícone
 build.sh                   compila, monta o .app, assina e cria o .dmg
