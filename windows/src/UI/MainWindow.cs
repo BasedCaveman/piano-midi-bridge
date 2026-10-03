@@ -63,6 +63,20 @@ public sealed class MainWindow : Window
         _bridge.PropertyChanged += (_, _) => Refresh();
     }
 
+    /// Barra de título escura (Windows 10 20H1+ / 11), combinando com a madeira do painel.
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+        var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+        int dark = 1;
+        DwmSetWindowAttribute(hwnd, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */, ref dark, sizeof(int));
+        int caption = 0x000A1429; // COLORREF 0x00BBGGRR: madeira escura (29 14 0A)
+        DwmSetWindowAttribute(hwnd, 35 /* DWMWA_CAPTION_COLOR, Windows 11 */, ref caption, sizeof(int));
+    }
+
+    [System.Runtime.InteropServices.DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
+
     public void ShowFromTray()
     {
         Show();

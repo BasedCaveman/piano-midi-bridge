@@ -168,8 +168,8 @@ public sealed class VacuumTube : FrameworkElement
         double glow = Power <= 0 ? 0 : Math.Max(0, Power + 0.06 * Math.Sin(t * 23) + 0.04 * Math.Sin(t * 7.3));
         var g = Brass.Glow;
         // halo
-        dc.DrawEllipse(new RadialGradientBrush(Color.FromArgb((byte)(glow * 150), g.R, g.G, g.B), Color.FromArgb(0, g.R, g.G, g.B)),
-            null, new Point(20, 30), 28, 34);
+        dc.DrawEllipse(new RadialGradientBrush(Color.FromArgb((byte)Math.Min(255, glow * 210), g.R, g.G, g.B), Color.FromArgb(0, g.R, g.G, g.B)),
+            null, new Point(20, 34), 30, 38);
         // vidro (topo arredondado)
         var glass = new Rect(4, 2, 32, 62);
         var env = new StreamGeometry();
@@ -188,11 +188,11 @@ public sealed class VacuumTube : FrameworkElement
         dc.DrawRoundedRectangle(plateBrush, null, new Rect(10, 25, 7, 30), 1, 1);
         dc.DrawRoundedRectangle(plateBrush, null, new Rect(23, 25, 7, 30), 1, 1);
         // filamento
-        dc.DrawRoundedRectangle(new RadialGradientBrush(Color.FromArgb((byte)(glow * 120), g.R, g.G, g.B), Color.FromArgb(0, g.R, g.G, g.B)),
-            null, new Rect(7, 18, 26, 44), 13, 13);
-        dc.DrawRoundedRectangle(new LinearGradientBrush(
-                Color.FromArgb((byte)(64 + glow * 191), 255, 217, 128), Color.FromArgb((byte)(64 + glow * 191), g.R, g.G, g.B), 90),
-            null, new Rect(18, 26, 4, 28), 2, 2);
+        dc.DrawRoundedRectangle(new RadialGradientBrush(Color.FromArgb((byte)Math.Min(255, glow * 230), 255, 170, 80), Color.FromArgb(0, g.R, g.G, g.B)),
+            null, new Rect(5, 16, 30, 48), 15, 15);
+        byte fa = (byte)Math.Min(255, 70 + glow * 185);
+        dc.DrawRoundedRectangle(new LinearGradientBrush(Color.FromArgb(fa, 255, 240, 200), Color.FromArgb(fa, 255, 150, 50), 90),
+            null, new Rect(17.5, 25, 5, 30), 2.5, 2.5);
         // getter e reflexo
         dc.DrawEllipse(new SolidColorBrush(Color.FromArgb(128, 190, 190, 190)), null, new Point(20, 9), 9, 3);
         dc.DrawRoundedRectangle(new SolidColorBrush(Color.FromArgb(90, 255, 255, 255)), null, new Rect(9, 14, 3, 34), 1.5, 1.5);
